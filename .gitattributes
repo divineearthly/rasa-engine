@@ -1,0 +1,1 @@
+rasa_net_deployment/rasa_net_exported_model/model.safetensors filter=lfs diff=lfs merge=lfs -text
