@@ -536,54 +536,28 @@ async function analyzeRasa() {
   document.getElementById('results').classList.remove('show');
   document.getElementById('errorBox').classList.remove('show');
 
-  // Local Vedic scoring first
   const localScores = scoreRasas(text);
 
-  try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 1000,
-        system: `You are a Rasa Sentiment Engine built on Bharata Muni's Natya Shastra — the ancient Indian science of emotion. 
-You analyze text and identify its dominant emotional Rasa from the 9 primary Rasas:
-1. Shringara (Love/Beauty/Romance)
-2. Hasya (Joy/Laughter/Delight)
-3. Karuna (Compassion/Sorrow/Grief)
-4. Raudra (Fury/Anger/Passion)
-5. Vira (Heroism/Courage/Triumph)
-6. Bhayanaka (Fear/Dread/Anxiety)
-7. Bibhatsa (Disgust/Revulsion/Injustice)
-8. Adbhuta (Wonder/Awe/Marvel)
-9. Shanta (Peace/Serenity/Calm)
+  // Pure Vedic local scoring — direct API blocked by CORS on static hosts
+  const dominant = localScores[0];
+  const scores = Object.fromEntries(localScores.map(r => [r.name, r.pct]));
 
-Respond ONLY with valid JSON, no markdown, no explanation:
-{
-  "dominant_rasa": "<name>",
-  "scores": { "Shringara": 0-100, "Hasya": 0-100, "Karuna": 0-100, "Raudra": 0-100, "Vira": 0-100, "Bhayanaka": 0-100, "Bibhatsa": 0-100, "Adbhuta": 0-100, "Shanta": 0-100 },
-  "insight": "<2-3 sentence content intelligence insight for a brand storyteller — what emotional driver makes this content resonate, what kind of audience it will reach, and one suggestion for amplifying its impact>",
-  "virality_score": <0-100 integer based on emotional intensity and shareability>
-}`,
-        messages: [{ role: "user", content: `Analyze this content:\n\n${text}` }]
-      })
-    });
+  const insightMap = {
+    Shringara: "This content leads with Shringara — the king of Rasas. The emotional core is love and longing, creating the strongest reader identification. Amplify the specific sensory detail that carries the weight of feeling.",
+    Hasya: "Hasya energy makes this inherently shareable — joy wants company. The lightness here will travel fast on Instagram and WhatsApp. End on unexpected warmth rather than pure punchline so it lingers after the laugh.",
+    Karuna: "Karuna creates the deepest human bond. This content makes the reader feel less alone. It performs strongly with audiences going through difficulty. Pair it with a line that offers hope — Karuna without resolution can feel heavy.",
+    Raudra: "Raudra drives action — comments, shares, tags. This content has the energy of righteous passion. For brand use, channel it toward a cause rather than an individual for maximum reach without backlash.",
+    Vira: "Vira content inspires. People send Vira stories to someone they believe in — a friend going through hardship, a sibling who needs courage. This is screenshot-and-share territory.",
+    Bhayanaka: "Bhayanaka creates urgency and forces the reader to confront what matters. Pair with a clear resolution — fear without agency creates paralysis, not engagement.",
+    Bibhatsa: "Bibhatsa is the Rasa of moral awakening — content that cannot be ignored. It generates the highest comment volumes because it demands a response. Direct the disgust at a system, not a person.",
+    Adbhuta: "Adbhuta — wonder and awe — has the highest natural virality of all nine Rasas. People share what astonishes them. Hold back one extraordinary detail until the final line so the wonder lands like a revelation.",
+    Shanta: "Shanta reaches people in quiet moments and stays with them longest. It won't spike virally but creates deep loyalty and saves. Ideal for brand trust-building over time.",
+  };
 
-    const data = await res.json();
-    const raw = data.content.map(b => b.text || "").join("").replace(/```json|```/g, "").trim();
-    const parsed = JSON.parse(raw);
-    renderResults(parsed, localScores);
+  const insight = insightMap[dominant.name] || "This content carries a complex emotional blend that creates deep reader identification.";
+  const virality_score = Math.min(97, Math.round(35 + localScores[0].pct * 0.9 + (localScores[1]?.pct || 0) * 0.3));
 
-  } catch (e) {
-    // Fallback to local scoring
-    const fallback = {
-      dominant_rasa: localScores[0].name,
-      scores: Object.fromEntries(localScores.map(r => [r.name, r.pct])),
-      insight: `This content carries the emotional signature of ${localScores[0].name} — ${localScores[0].english}. Stories with this dominant Rasa tend to create deep reader identification. Consider amplifying the sensory details that carry this emotional charge for maximum resonance.`,
-      virality_score: Math.min(95, 40 + localScores[0].pct)
-    };
-    renderResults(fallback, localScores);
-  }
+  renderResults({ dominant_rasa: dominant.name, scores, insight, virality_score }, localScores);
 
   document.getElementById('loading').classList.remove('show');
   btn.disabled = false;
@@ -652,9 +626,12 @@ function showError(msg) {
   el.classList.add('show');
 }
 
-// Example prefill
-const example = "She was 62 when she walked into our office — retired, widowed, no children nearby. She said she wanted to volunteer. We gave her a small desk and a phone. What we didn't know was that she'd call every single person on our outreach list, not to give them resources, but to talk. Two hours each. She remembered birthdays. She remembered names of grandchildren. Last month, 47 people showed up to her retirement party — people she'd never met in person. She said, 'I was the lonely one. They saved me.'";
-document.getElementById('storyInput').value = example;
+// Example prefill — wrapped in DOMContentLoaded to ensure element exists
+document.addEventListener('DOMContentLoaded', function() {
+  const example = "She was 62 when she walked into our office — retired, widowed, no children nearby. She said she wanted to volunteer. We gave her a small desk and a phone. What we didn't know was that she'd call every single person on our outreach list, not to give them resources, but to talk. Two hours each. She remembered birthdays. She remembered names of grandchildren. Last month, 47 people showed up to her retirement party — people she'd never met in person. She said, 'I was the lonely one. They saved me.'";
+  const el = document.getElementById('storyInput');
+  if (el) el.value = example;
+});
 </script>
 </body>
 </html>
